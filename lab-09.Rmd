@@ -38,11 +38,43 @@ Part 1
 What are the dimensions of the COMPAS dataset? (Hint: Use inline R code and functions like nrow and ncol to compose your answer.) What does each row in the dataset represent? What are the variables?
 
 Our dataset has```r nrow(compas)``` rows and ```r ncol(compas)``` columns. 
-Each row represents a certain variable. The variables are ```r names(compas)```.
+Each row represents one person (an observation). The variables are ```r names(compas)```.
 
 ### Exercise 2
 
+Based on the ID variable, there are ```r n_distinct(compas$id)``` unique defendants are in the dataset, while there are ```r nrow(compas)``` rows total. This is the same as the number of rows, but I'm not sure I'm convinced by this method.
+
+So I'll group by name, and I find that each observation is still unique and matches the rows, even if the names are shared.
+```{r unique}
+# See if same name appears with diff IDs
+compas %>%
+  group_by(name) %>%
+  summarise(n_ids = n_distinct(id)) %>%
+  filter(n_ids > 1)
+
+
+# some people might share the same name, so I'll double check with DOB
+compas %>%
+  group_by(name, dob) %>%
+  summarise(n_ids = n_distinct(id)) %>%
+  filter(n_ids > 1)
+```
+
+
 ### Exercise 3
+
+Let’s examine the distribution of the COMPAS risk scores (decile_score)! 
+
+The distribution is positively skewed. 
+
+```{r distribution}
+
+ggplot(compas, aes(x = decile_score)) +
+  geom_histogram(alpha = 0.5, fill = "plum4") +
+  theme_classic()
+
+```
+
 
 ### Exercise 4
 

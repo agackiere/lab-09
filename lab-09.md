@@ -115,13 +115,64 @@ What are the dimensions of the COMPAS dataset? (Hint: Use inline R code
 and functions like nrow and ncol to compose your answer.) What does each
 row in the dataset represent? What are the variables?
 
-Our dataset has`7214` rows and `53` columns. Each row represents a
-certain variable. The variables are
+Our dataset has`7214` rows and `53` columns. Each row represents one
+person (an observation). The variables are
 `id, name, first, last, compas_screening_date, sex, dob, age, age_cat, race, juv_fel_count, decile_score, juv_misd_count, juv_other_count, priors_count, days_b_screening_arrest, c_jail_in, c_jail_out, c_case_number, c_offense_date, c_arrest_date, c_days_from_compas, c_charge_degree, c_charge_desc, is_recid, r_case_number, r_charge_degree, r_days_from_arrest, r_offense_date, r_charge_desc, r_jail_in, r_jail_out, violent_recid, is_violent_recid, vr_case_number, vr_charge_degree, vr_offense_date, vr_charge_desc, type_of_assessment, decile_score_40, score_text, screening_date, v_type_of_assessment, v_decile_score, v_score_text, v_screening_date, in_custody, out_custody, priors_count_49, start, end, event, two_year_recid`.
 
 ### Exercise 2
 
+Based on the ID variable, there are `7214` unique defendants are in the
+dataset, while there are `7214` rows total. This is the same as the
+number of rows, but I’m not sure I’m convinced by this method.
+
+So I’ll group by name:
+
+``` r
+# See if same name appears with diff IDs
+compas %>%
+  group_by(name) %>%
+  summarise(n_ids = n_distinct(id)) %>%
+  filter(n_ids > 1)
+```
+
+    ## # A tibble: 55 × 2
+    ##    name                 n_ids
+    ##    <chr>                <int>
+    ##  1 angel santiago           2
+    ##  2 anthony gonzalez         2
+    ##  3 anthony louis            2
+    ##  4 anthony smith            3
+    ##  5 brandon whitfield        2
+    ##  6 carlos vasquez           2
+    ##  7 christopher gonzalez     2
+    ##  8 christopher hamilton     2
+    ##  9 christopher harris       2
+    ## 10 clinton johnson          2
+    ## # ℹ 45 more rows
+
+``` r
+# some people might share the same name, so I'll double check with DOB
+compas %>%
+  group_by(name, dob) %>%
+  summarise(n_ids = n_distinct(id)) %>%
+  filter(n_ids > 1)
+```
+
+    ## `summarise()` has regrouped the output.
+    ## ℹ Summaries were computed grouped by name and dob.
+    ## ℹ Output is grouped by name.
+    ## ℹ Use `summarise(.groups = "drop_last")` to silence this message.
+    ## ℹ Use `summarise(.by = c(name, dob))` for per-operation grouping
+    ##   (`?dplyr::dplyr_by`) instead.
+
+    ## # A tibble: 0 × 3
+    ## # Groups:   name [0]
+    ## # ℹ 3 variables: name <chr>, dob <date>, n_ids <int>
+
 ### Exercise 3
+
+Let’s examine the distribution of the COMPAS risk scores (decile_score)!
+What do you observe about the shape of this distribution?
 
 ### Exercise 4
 
