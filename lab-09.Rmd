@@ -70,13 +70,65 @@ The distribution is positively skewed.
 ```{r distribution}
 
 ggplot(compas, aes(x = decile_score)) +
-  geom_histogram(alpha = 0.5, fill = "plum4") +
+  geom_histogram(alpha = 0.5, fill = "plum") +
   theme_classic()
 
 ```
 
 
 ### Exercise 4
+The distribution of defendants by race
+```{r race-distribution}
+ggplot(compas, aes(x = race)) +
+  geom_bar(alpha = 0.5, fill = "plum") +
+  theme_classic()
+
+```
+
+The distribution of defendants by sex
+
+```{r sex-distribution}
+ggplot(compas, aes(x = sex)) +
+  geom_bar(alpha = 0.5, fill = "plum") +
+  theme_classic()
+```
+
+The distribution of defendants by age category
+```{r age-distribution}
+ggplot(compas, aes(x = age_cat)) +
+  geom_bar(alpha = 0.5, fill = "plum") +
+  theme_classic()
+```
+
+Demographics Distribution
+```{r demographics}
+
+compas_long <- compas %>%
+  select(race, sex, age_cat) %>%
+  pivot_longer(cols = everything(), names_to = "demographic", values_to = "value")
+
+ggplot(compas_long, aes(x = value, fill = demographic)) +
+  geom_bar(alpha = 0.7) +
+  facet_wrap(~ demographic, scales = "free") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Distribution of Defendants by Demographic Group",
+       x = "", y = "Count")
+
+```
+
+
+# Overlaid density plots
+ggplot(data, aes(x = continuous_var, color = categorical_var, fill = categorical_var)) +
+  geom_density(alpha = 0.5) # alpha adds transparency
+
+# Faceted histograms (separate plots for each category)
+ggplot(data, aes(x = continuous_var)) +
+  geom_histogram(binwidth = 500) +
+  facet_grid(categorical_var ~ .) # creates rows for each category
+
+
+
 
 Part 2
 
