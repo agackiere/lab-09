@@ -117,32 +117,89 @@ ggplot(compas_long, aes(x = value, fill = demographic)) +
 
 ```
 
-
-# Overlaid density plots
-ggplot(data, aes(x = continuous_var, color = categorical_var, fill = categorical_var)) +
-  geom_density(alpha = 0.5) # alpha adds transparency
-
-# Faceted histograms (separate plots for each category)
-ggplot(data, aes(x = continuous_var)) +
-  geom_histogram(binwidth = 500) +
-  facet_grid(categorical_var ~ .) # creates rows for each category
-
-
-
-
-Part 2
+Part 2: Risk Scores and Recidivism
 
 ### Exercise 5
+Create a visualization showing the relationship between risk scores (decile_score) and actual recidivism (two_year_recid). Do higher risk scores actually correspond to higher rates of recidivism
+
+```{r recidivism}
+ggplot(compas, aes(x = factor(two_year_recid), y = decile_score, fill = factor(two_year_recid))) +
+  geom_boxplot(alpha = 0.7) +
+  theme_classic() +
+  labs(title = "Risk Scores by Recidivism Outcome",
+       x = "Recidivism (0 = No, 1 = Yes)",
+       y = "Risk Score",
+       fill = "Actual Recidivism")
+```
+
 
 ### Exercise 6
+Calculate the overall accuracy of the COMPAS algorithm.
+
+```{r accuracy-test}
+compas <- compas %>%
+  mutate(compas_classification = case_when(
+    decile_score >= 7 & two_year_recid == 1 ~ "TP",
+    decile_score <= 4 & two_year_recid == 0 ~ "TN",
+    decile_score >= 7 & two_year_recid == 0 ~ "FP",
+    decile_score <= 4 & two_year_recid == 1 ~ "FN",
+    TRUE ~ NA_character_  # scores 5-6 are ambiguous, exclude them
+  ))
+
+# accuracy calculation
+compas %>%
+  filter(!is.na(compas_classification)) %>%
+  summarise(
+    TP = sum(compas_classification == "TP"),
+    TN = sum(compas_classification == "TN"),
+    FP = sum(compas_classification == "FP"),
+    FN = sum(compas_classification == "FN"),
+    accuracy = (TP + TN) / (TP + TN + FP + FN)
+  )
+
+
+
+```
 
 ### Exercise 7
+
+Only 68.45% of its predictions are correct, which is very concerning. 
 
 Part 3
 
 ### Exercise 8
 
+Based on the distribution, I notice a concerning disparity in the risk scores between black and white defendants. The distribution of white defendants is very positively skewed (so low Risk Score for most), while the one of black defendants is uniform.
+
+```{r score-disparities}
+
+compas %>%
+  filter(race %in% c("African-American", "Caucasian")) %>%
+  ggplot(aes(x = decile_score, fill = race)) +
+  geom_histogram(alpha = 0.5, position = "dodge", bins = 10) +
+  theme_classic() +
+  labs(title = "Distribution of Risk Scores by Race",
+       x = "Risk Score",
+       y = "Count",
+       fill = "Race")
+
+```
+
+
 ### Exercise 9
+There is a disparity in the percentage of black defendants classified as high risk (38.56%) compared to those who are white (17.07%). 
+```{r risk-disparity}
+
+compas %>%
+  filter(race %in% c("African-American", "Caucasian")) %>%
+  group_by(race) %>%
+  summarise(
+    total = n(),
+    high_risk = sum(decile_score >= 7),
+    pct_high_risk = high_risk / total * 100
+  )
+```
+
 
 ### Exercise 10
 

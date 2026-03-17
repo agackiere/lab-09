@@ -125,7 +125,8 @@ Based on the ID variable, there are `7214` unique defendants are in the
 dataset, while there are `7214` rows total. This is the same as the
 number of rows, but I’m not sure I’m convinced by this method.
 
-So I’ll group by name:
+So I’ll group by name, and I find that each observation is still unique
+and matches the rows, even if the names are shared.
 
 ``` r
 # See if same name appears with diff IDs
@@ -172,23 +173,168 @@ compas %>%
 ### Exercise 3
 
 Let’s examine the distribution of the COMPAS risk scores (decile_score)!
-What do you observe about the shape of this distribution?
+
+The distribution is positively skewed.
+
+``` r
+ggplot(compas, aes(x = decile_score)) +
+  geom_histogram(alpha = 0.5, fill = "plum") +
+  theme_classic()
+```
+
+    ## `stat_bin()` using `bins = 30`. Pick better value `binwidth`.
+
+![](lab-09_files/figure-gfm/distribution-1.png)<!-- -->
 
 ### Exercise 4
 
-Part 2
+The distribution of defendants by race
+
+``` r
+ggplot(compas, aes(x = race)) +
+  geom_bar(alpha = 0.5, fill = "plum") +
+  theme_classic()
+```
+
+![](lab-09_files/figure-gfm/race-distribution-1.png)<!-- -->
+
+The distribution of defendants by sex
+
+``` r
+ggplot(compas, aes(x = sex)) +
+  geom_bar(alpha = 0.5, fill = "plum") +
+  theme_classic()
+```
+
+![](lab-09_files/figure-gfm/sex-distribution-1.png)<!-- -->
+
+The distribution of defendants by age category
+
+``` r
+ggplot(compas, aes(x = age_cat)) +
+  geom_bar(alpha = 0.5, fill = "plum") +
+  theme_classic()
+```
+
+![](lab-09_files/figure-gfm/age-distribution-1.png)<!-- -->
+
+Demographics Distribution
+
+``` r
+compas_long <- compas %>%
+  select(race, sex, age_cat) %>%
+  pivot_longer(cols = everything(), names_to = "demographic", values_to = "value")
+
+ggplot(compas_long, aes(x = value, fill = demographic)) +
+  geom_bar(alpha = 0.7) +
+  facet_wrap(~ demographic, scales = "free") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Distribution of Defendants by Demographic Group",
+       x = "", y = "Count")
+```
+
+![](lab-09_files/figure-gfm/demographics-1.png)<!-- -->
+
+Part 2: Risk Scores and Recidivism
 
 ### Exercise 5
 
+Create a visualization showing the relationship between risk scores
+(decile_score) and actual recidivism (two_year_recid). Do higher risk
+scores actually correspond to higher rates of recidivism
+
+``` r
+ggplot(compas, aes(x = factor(two_year_recid), y = decile_score, fill = factor(two_year_recid))) +
+  geom_boxplot(alpha = 0.7) +
+  theme_classic() +
+  labs(title = "Risk Scores by Recidivism Outcome",
+       x = "Recidivism (0 = No, 1 = Yes)",
+       y = "Risk Score",
+       fill = "Actual Recidivism")
+```
+
+![](lab-09_files/figure-gfm/recidivism-1.png)<!-- -->
+
 ### Exercise 6
 
+Calculate the overall accuracy of the COMPAS algorithm.
+
+``` r
+compas <- compas %>%
+  mutate(compas_classification = case_when(
+    decile_score >= 7 & two_year_recid == 1 ~ "TP",
+    decile_score <= 4 & two_year_recid == 0 ~ "TN",
+    decile_score >= 7 & two_year_recid == 0 ~ "FP",
+    decile_score <= 4 & two_year_recid == 1 ~ "FN",
+    TRUE ~ NA_character_  # scores 5-6 are ambiguous, exclude them
+  ))
+
+# accuracy calculation
+compas %>%
+  filter(!is.na(compas_classification)) %>%
+  summarise(
+    TP = sum(compas_classification == "TP"),
+    TN = sum(compas_classification == "TN"),
+    FP = sum(compas_classification == "FP"),
+    FN = sum(compas_classification == "FN"),
+    accuracy = (TP + TN) / (TP + TN + FP + FN)
+  )
+```
+
+    ## # A tibble: 1 × 5
+    ##      TP    TN    FP    FN accuracy
+    ##   <int> <int> <int> <int>    <dbl>
+    ## 1  1351  2681   644  1216    0.684
+
 ### Exercise 7
+
+Only 68.45% of its predictions are correct, which is very concerning.
 
 Part 3
 
 ### Exercise 8
 
+Based on the distribution, I notice a concerning disparity in the risk
+scores between black and white defendants. The distribution of white
+defendants is very positively skewed (so low Risk Score for most), while
+the one of black defendants is uniform.
+
+``` r
+compas %>%
+  filter(race %in% c("African-American", "Caucasian")) %>%
+  ggplot(aes(x = decile_score, fill = race)) +
+  geom_histogram(alpha = 0.5, position = "dodge", bins = 10) +
+  theme_classic() +
+  labs(title = "Distribution of Risk Scores by Race",
+       x = "Risk Score",
+       y = "Count",
+       fill = "Race")
+```
+
+![](lab-09_files/figure-gfm/score-disparities-1.png)<!-- -->
+
 ### Exercise 9
+
+There is a disparity in the percentage of black defendants classified as
+high risk (38.56%) compared to those who are white (17.07%).
+
+``` r
+compas %>%
+  filter(race %in% c("African-American", "Caucasian")) %>%
+  group_by(race) %>%
+  summarise(
+    total = n(),
+    high_risk = sum(decile_score >= 7),
+    pct_high_risk = high_risk / total * 100
+  )
+```
+
+    ## # A tibble: 2 × 4
+    ##   race             total high_risk pct_high_risk
+    ##   <chr>            <int>     <int>         <dbl>
+    ## 1 African-American  3696      1425          38.6
+    ## 2 Caucasian         2454       419          17.1
 
 ### Exercise 10
 
