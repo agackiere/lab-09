@@ -107,7 +107,7 @@ glimpse(compas)
     ## $ event                   <dbl> 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1…
     ## $ two_year_recid          <dbl> 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1…
 
-Part 1
+# Part 1
 
 ### Exercise 1
 
@@ -115,15 +115,25 @@ What are the dimensions of the COMPAS dataset? (Hint: Use inline R code
 and functions like nrow and ncol to compose your answer.) What does each
 row in the dataset represent? What are the variables?
 
-Our dataset has`7214` rows and `53` columns. Each row represents one
-person (an observation). The variables are
-`id, name, first, last, compas_screening_date, sex, dob, age, age_cat, race, juv_fel_count, decile_score, juv_misd_count, juv_other_count, priors_count, days_b_screening_arrest, c_jail_in, c_jail_out, c_case_number, c_offense_date, c_arrest_date, c_days_from_compas, c_charge_degree, c_charge_desc, is_recid, r_case_number, r_charge_degree, r_days_from_arrest, r_offense_date, r_charge_desc, r_jail_in, r_jail_out, violent_recid, is_violent_recid, vr_case_number, vr_charge_degree, vr_offense_date, vr_charge_desc, type_of_assessment, decile_score_40, score_text, screening_date, v_type_of_assessment, v_decile_score, v_score_text, v_screening_date, in_custody, out_custody, priors_count_49, start, end, event, two_year_recid`.
+Our dataset has7214 rows and 53 columns. Each row represents one person
+(an observation). The variables are id, name, first, last,
+compas_screening_date, sex, dob, age, age_cat, race, juv_fel_count,
+decile_score, juv_misd_count, juv_other_count, priors_count,
+days_b_screening_arrest, c_jail_in, c_jail_out, c_case_number,
+c_offense_date, c_arrest_date, c_days_from_compas, c_charge_degree,
+c_charge_desc, is_recid, r_case_number, r_charge_degree,
+r_days_from_arrest, r_offense_date, r_charge_desc, r_jail_in,
+r_jail_out, violent_recid, is_violent_recid, vr_case_number,
+vr_charge_degree, vr_offense_date, vr_charge_desc, type_of_assessment,
+decile_score_40, score_text, screening_date, v_type_of_assessment,
+v_decile_score, v_score_text, v_screening_date, in_custody, out_custody,
+priors_count_49, start, end, event, two_year_recid.
 
 ### Exercise 2
 
-Based on the ID variable, there are `7214` unique defendants are in the
-dataset, while there are `7214` rows total. This is the same as the
-number of rows, but I’m not sure I’m convinced by this method.
+Based on the ID variable, there are 7214 unique defendants are in the
+dataset, while there are 7214 rows total. This is the same as the number
+of rows, but I’m not sure I’m convinced by this method.
 
 So I’ll group by name, and I find that each observation is still unique
 and matches the rows, even if the names are shared.
@@ -236,7 +246,7 @@ ggplot(compas_long, aes(x = value, fill = demographic)) +
 
 ![](lab-09_files/figure-gfm/demographics-1.png)<!-- -->
 
-Part 2: Risk Scores and Recidivism
+# Part 2: Risk Scores and Recidivism
 
 ### Exercise 5
 
@@ -291,7 +301,7 @@ compas %>%
 
 Only 68.45% of its predictions are correct, which is very concerning.
 
-Part 3
+# Part 3
 
 ### Exercise 8
 
@@ -413,7 +423,7 @@ bind_rows(fpr_plot, fnr_plot) %>%
 
 ![](lab-09_files/figure-gfm/race-disparity-visual-1.png)<!-- -->
 
-Part 4: Understanding Sources of Bias
+# Part 4: Understanding Sources of Bias
 
 ### Exercise 12
 
@@ -469,7 +479,7 @@ compas %>%
 
 ![](lab-09_files/figure-gfm/calibration-check-1.png)<!-- -->
 
-Part 5: Designing Fairer Algorithms
+# Part 5: Designing Fairer Algorithms
 
 ### Exercise 14
 
@@ -563,9 +573,10 @@ ggplot(compas %>% filter(!race %in% c("Native American", "Asian", "Other")),
        fill = "Race")
 ```
 
-![](lab-09_files/figure-gfm/priorcounts-byrace-2.png)<!-- --> Even
-though these distributions mainly appeared to all be positively skewed,
-it’s important to look at the y-axis. There are far more black
+![](lab-09_files/figure-gfm/priorcounts-byrace-2.png)<!-- -->
+
+Even though these distributions mainly appeared to all be positively
+skewed, it’s important to look at the y-axis. There are far more black
 defendants in the dataset than any other group, which is an important
 disparity to keep in mind.
 
@@ -613,64 +624,3 @@ compas %>%
     ##   (`?dplyr::dplyr_by`) instead.
 
 ![](lab-09_files/figure-gfm/priorcounts-chargetype-2.png)<!-- -->
-
-Building a fairer algorithm
-
-### Exercise 19
-
-``` r
-# Create a logistic regression model
-recid_model <- glm(
-  two_year_recid ~ age + priors_count + c_charge_degree,
-  data = compas,
-  family = binomial()
-)
-
-# Add predicted probabilities to the dataset
-compas <- compas %>%
-  mutate(
-    predicted_prob = predict(recid_model, type = "response"),
-    our_high_risk = predicted_prob >= 0.5
-  )
-```
-
-### Exercise 20
-
-Evaluate the fairness of your model using the same metrics we calculated
-for the COMPAS algorithm. Does your model show less bias than the COMPAS
-algorithm? If so, why might that be the case?
-
-### Exercise 21
-
-``` r
-# Create a logistic regression model with race
-recid_model_with_race <- glm(
-  two_year_recid ~ age + priors_count + c_charge_degree + race,
-  data = compas,
-  family = binomial()
-)
-
-# Add predicted probabilities to the dataset
-compas <- compas %>%
-  mutate(
-    predicted_prob_with_race = predict(recid_model_with_race, type = "response"),
-    race_high_risk = predicted_prob_with_race >= 0.5
-  )
-```
-
-### Exercise 22
-
-ompare the fairness metrics for this model with your previous model.
-What happened to the disparities between racial groups? Does including
-race as a variable make the algorithm more or less fair?
-
-### Exercise 23
-
-Based on your analysis, write a brief policy recommendation for how risk
-assessment algorithms should be used in the criminal justice system.
-Consider the following questions:
-
-Should algorithms like COMPAS be used in criminal justice decisions? Why
-or why not? If they are used, what safeguards should be put in place?
-How should the trade-off between accuracy and fairness be handled? What
-role should transparency play in algorithmic decision-making?
