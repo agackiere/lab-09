@@ -301,9 +301,10 @@ defendants is very positively skewed (so low Risk Score for most), while
 the one of black defendants is uniform.
 
 ``` r
-compas %>%
-  filter(race %in% c("African-American", "Caucasian")) %>%
-  ggplot(aes(x = decile_score, fill = race)) +
+compas_black_white <- compas %>%
+  filter(race %in% c("African-American", "Caucasian"))
+
+ggplot(compas_black_white, aes(x = decile_score, fill = race)) +
   geom_histogram(alpha = 0.5, position = "dodge", bins = 10) +
   theme_classic() +
   labs(title = "Distribution of Risk Scores by Race",
@@ -320,8 +321,7 @@ There is a disparity in the percentage of black defendants classified as
 high risk (38.56%) compared to those who are white (17.07%).
 
 ``` r
-compas %>%
-  filter(race %in% c("African-American", "Caucasian")) %>%
+compas_black_white %>%
   group_by(race) %>%
   summarise(
     total = n(),
@@ -338,8 +338,339 @@ compas %>%
 
 ### Exercise 10
 
-## Additional Exercises
+``` r
+# To filter for specific conditions:
+non_recidivists <- compas %>%
+  filter(two_year_recid == 0)
 
-Almost there! Keep building on your work and follow the same structure
-for any remaining exercises. Each exercise builds on the last, so take
-your time and make sure your code is working as expected.
+# False Positive Rate by race
+fpr_results <- non_recidivists %>%
+  filter(race %in% c("African-American", "Caucasian")) %>%
+  group_by(race) %>%
+  summarise(
+    total_non_recidivists = n(),
+    false_positives = sum(decile_score >= 7),
+    FPR = false_positives / total_non_recidivists * 100
+  )
+
+# False Negative Rate by race
+fnr_results <- compas %>%
+  filter(race %in% c("African-American", "Caucasian"),
+         two_year_recid == 1) %>%
+  group_by(race) %>%
+  summarise(
+    total_recidivists = n(),
+    false_negatives = sum(decile_score <= 4),
+    FNR = false_negatives / total_recidivists * 100
+  )
+
+# print false positive
+fpr_results
+```
+
+    ## # A tibble: 2 × 4
+    ##   race             total_non_recidivists false_positives   FPR
+    ##   <chr>                            <int>           <int> <dbl>
+    ## 1 African-American                  1795             447 24.9 
+    ## 2 Caucasian                         1488             136  9.14
+
+``` r
+# print false negative
+fnr_results 
+```
+
+    ## # A tibble: 2 × 4
+    ##   race             total_recidivists false_negatives   FNR
+    ##   <chr>                        <int>           <int> <dbl>
+    ## 1 African-American              1901             532  28.0
+    ## 2 Caucasian                      966             461  47.7
+
+### Exercise 11
+
+There’s a concerning disparity in the false negative rates by race (much
+higher for white defendants) and fasle positive rates by race (much
+higher for black defendants).
+
+``` r
+# rbind didn't work since mismatch names so I used bind_rows instead and created a metric and value column (I'm sure there's an easier way but this worked)
+
+fpr_plot <- fpr_results %>%
+  select(race, value = FPR) %>%
+  mutate(metric = "FPR")
+
+fnr_plot <- fnr_results %>%
+  select(race, value = FNR) %>%
+  mutate(metric = "FNR")
+
+bind_rows(fpr_plot, fnr_plot) %>%
+  ggplot(aes(x = race, y = value, fill = race)) +
+  geom_bar(stat = "identity", alpha = 0.7) +
+  facet_wrap(~ metric) +
+  theme_classic() +
+  labs(title = "False Positive and False Negative Rates by Race",
+       x = "Race", y = "Rate (%)")
+```
+
+![](lab-09_files/figure-gfm/race-disparity-visual-1.png)<!-- -->
+
+Part 4: Understanding Sources of Bias
+
+### Exercise 12
+
+Based on the plot below, the algorithm weighs prior convictions
+differently for different racial groups, particularly for minoritized
+populations.
+
+``` r
+ggplot(compas, aes(x = priors_count, y = decile_score, color = race)) +
+  geom_point(alpha = 0.1) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_classic() +
+  labs(title = "Prior Convictions vs Risk Score by Race",
+       x = "Prior Convictions",
+       y = "Risk Score",
+       color = "Race")
+```
+
+    ## `geom_smooth()` using formula = 'y ~ x'
+
+![](lab-09_files/figure-gfm/priorcount-distribution-1.png)<!-- -->
+
+### Exercise 13
+
+There is not sufficient evidence to support Northpointe’s claim that the
+algorithm is fair. Based on the plot below, the same score does not mean
+the same probability of recidivism across groups.
+
+``` r
+compas %>%
+  group_by(race, decile_score) %>%
+  summarise(
+    total = n(),
+    recidivated = sum(two_year_recid == 1),
+    recid_rate = recidivated / total * 100
+  ) %>%
+  ggplot(aes(x = decile_score, y = recid_rate, color = race)) +
+  geom_line() +
+  geom_point() +
+  theme_classic() +
+  labs(title = "Calibration: Recidivism Rate by Risk Score and Race",
+       x = "Risk Score (Decile)",
+       y = "Actual Recidivism Rate (%)",
+       color = "Race")
+```
+
+    ## `summarise()` has regrouped the output.
+    ## ℹ Summaries were computed grouped by race and decile_score.
+    ## ℹ Output is grouped by race.
+    ## ℹ Use `summarise(.groups = "drop_last")` to silence this message.
+    ## ℹ Use `summarise(.by = c(race, decile_score))` for per-operation grouping
+    ##   (`?dplyr::dplyr_by`) instead.
+
+![](lab-09_files/figure-gfm/calibration-check-1.png)<!-- -->
+
+Part 5: Designing Fairer Algorithms
+
+### Exercise 14
+
+If I was tasked with creating a fairer risk assessment algorithm, these
+are the changes I would make to address the disparities I have
+observed: 1. Prior convictions may be considered proxies for race since
+certain races have historically been overpoliced; it demonstrates biased
+policing. 2. Develop an algorithm that penalizes false positive rates
+somehow.
+
+Overall, the data itself is biased, and it is difficult to create a fair
+algorithm with biased data.
+
+### Exercise 15
+
+Different definitions of fairness can sometimes be mathematically
+incompatible with each other. What trade-offs might be involved in
+designing a “fair” algorithm for criminal risk assessment?
+
+Since base rates differ between racial groups here, it’s not possible to
+have equal false positive and negative rates across groups and
+calibration at the same time. If one prioritizes calibration, then the
+same scores mean the same level of risk across groups. However, I think
+that within the group, individuals bear the cost of group-level base
+rate differences. If one prioritizes equal error rates, then it’s fairer
+at the individual level but scores mean different things for different
+groups (and the prediction accuracy might drop). Prioritizing the
+reduction of false positives means fewer people are wrongly convicted,
+but you run the chance of not labeling someone who is actually a
+recidivist.
+
+### Exercise 16
+
+I think transparency is very important, in that defendants should be
+able to know how risk scores were calculated and that they should be
+able to challenge them in court. This might mean creating open source
+risk assessment tools. They also should not be allowed in actually
+sentencing someone and there should be some sort of time limit to them
+(something you did fifty years ago should not impact your risk score
+now).
+
+There should be policies in place that also require workers of the
+judicial system to take courses on algorithmic bias so that they fully
+understand the type of technology used in court. It’s also important to
+highlight what the data directly shows and not make inferences since the
+algorithm uses data about arrests and not crimes directly. Stretch Goals
+
+### Exercise 17
+
+Distribution of prior convictions by race.
+
+``` r
+# I wanted to use one geom density but there were to many fill variables so I used facet wrap instead
+ggplot(compas, aes(x = priors_count, fill = race)) +
+  geom_histogram(alpha = 0.7, bins = 10) +
+  facet_wrap(~ race, scales = "free_y") +
+  theme_classic() +
+  labs(title = "Prior Convictions by Race",
+       x = "Prior Convictions",
+       y = "Count",
+       fill = "Race")
+```
+
+![](lab-09_files/figure-gfm/priorcounts-byrace-1.png)<!-- -->
+
+``` r
+# Some groups have very small sample sizes so let's check
+compas %>% count(race) %>% arrange(n)
+```
+
+    ## # A tibble: 6 × 2
+    ##   race                 n
+    ##   <chr>            <int>
+    ## 1 Native American     18
+    ## 2 Asian               32
+    ## 3 Other              377
+    ## 4 Hispanic           637
+    ## 5 Caucasian         2454
+    ## 6 African-American  3696
+
+``` r
+# this should look better
+ggplot(compas %>% filter(!race %in% c("Native American", "Asian", "Other")), 
+       aes(x = priors_count, fill = race)) +
+  geom_histogram(alpha = 0.7, bins = 15) +
+  facet_wrap(~ race, scales = "free_y") +
+  theme_classic() +
+  labs(title = "Distribution of Prior Convictions by Race",
+       x = "Prior Convictions",
+       y = "Count",
+       fill = "Race")
+```
+
+![](lab-09_files/figure-gfm/priorcounts-byrace-2.png)<!-- --> Even
+though these distributions mainly appeared to all be positively skewed,
+it’s important to look at the y-axis. There are far more black
+defendants in the dataset than any other group, which is an important
+disparity to keep in mind.
+
+### Exercise 18
+
+These variables do show different distributions across racial groups.
+Differences in type of degree charge may contribute to disparities in
+risk scores.
+
+``` r
+# note M = misdemeanor, F = Felony
+compas %>%
+  filter(!race %in% c("Native American", "Asian")) %>%
+  ggplot(aes(x = priors_count, fill = race)) +
+  geom_histogram(alpha = 0.7, bins = 15) +
+  facet_grid(race ~ c_charge_degree, scales = "free_y") +
+  theme_classic() +
+  labs(title = "Prior Convictions by Race and Charge Type",
+       x = "Prior Convictions",
+       y = "Count",
+       fill = "Race")
+```
+
+![](lab-09_files/figure-gfm/priorcounts-chargetype-1.png)<!-- -->
+
+``` r
+## average is easier to compare; note I included NA and AA despite the small sample sizes here, so careful comparing those to others.
+compas %>%
+  group_by(race, c_charge_degree) %>%
+  summarise(avg_priors = mean(priors_count)) %>%
+  ggplot(aes(x = race, y = avg_priors, fill = c_charge_degree)) +
+  geom_bar(stat = "identity", position = "dodge", alpha = 0.7) +
+  theme_classic() +
+  labs(title = "Average Prior Convictions by Race and Charge Type",
+       x = "Race",
+       y = "Average Prior Convictions",
+       fill = "Charge Type")
+```
+
+    ## `summarise()` has regrouped the output.
+    ## ℹ Summaries were computed grouped by race and c_charge_degree.
+    ## ℹ Output is grouped by race.
+    ## ℹ Use `summarise(.groups = "drop_last")` to silence this message.
+    ## ℹ Use `summarise(.by = c(race, c_charge_degree))` for per-operation grouping
+    ##   (`?dplyr::dplyr_by`) instead.
+
+![](lab-09_files/figure-gfm/priorcounts-chargetype-2.png)<!-- -->
+
+Building a fairer algorithm
+
+### Exercise 19
+
+``` r
+# Create a logistic regression model
+recid_model <- glm(
+  two_year_recid ~ age + priors_count + c_charge_degree,
+  data = compas,
+  family = binomial()
+)
+
+# Add predicted probabilities to the dataset
+compas <- compas %>%
+  mutate(
+    predicted_prob = predict(recid_model, type = "response"),
+    our_high_risk = predicted_prob >= 0.5
+  )
+```
+
+### Exercise 20
+
+Evaluate the fairness of your model using the same metrics we calculated
+for the COMPAS algorithm. Does your model show less bias than the COMPAS
+algorithm? If so, why might that be the case?
+
+### Exercise 21
+
+``` r
+# Create a logistic regression model with race
+recid_model_with_race <- glm(
+  two_year_recid ~ age + priors_count + c_charge_degree + race,
+  data = compas,
+  family = binomial()
+)
+
+# Add predicted probabilities to the dataset
+compas <- compas %>%
+  mutate(
+    predicted_prob_with_race = predict(recid_model_with_race, type = "response"),
+    race_high_risk = predicted_prob_with_race >= 0.5
+  )
+```
+
+### Exercise 22
+
+ompare the fairness metrics for this model with your previous model.
+What happened to the disparities between racial groups? Does including
+race as a variable make the algorithm more or less fair?
+
+### Exercise 23
+
+Based on your analysis, write a brief policy recommendation for how risk
+assessment algorithms should be used in the criminal justice system.
+Consider the following questions:
+
+Should algorithms like COMPAS be used in criminal justice decisions? Why
+or why not? If they are used, what safeguards should be put in place?
+How should the trade-off between accuracy and fairness be handled? What
+role should transparency play in algorithmic decision-making?
